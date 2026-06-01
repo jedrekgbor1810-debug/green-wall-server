@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Green Wall Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #1a1a2e; color: #eee; padding: 16px; }
+    h1 { color: #00d4aa; text-align: center; margin-bottom: 20px; font-size: 28px; }
+    h2 { color: #00d4aa; margin-bottom: 12px; font-size: 18px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; max-width: 1400px; margin: auto; }
+    .card { background: #16213e; border-radius: 12px; padding: 16px; }
+    .row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #0f3460; }
+    .row:last-child { border-bottom: none; }
+    .val { color: #00d4aa; font-weight: bold; }
+    .alert { background: #c0392b; border-radius: 8px; padding: 14px; text-align: center; font-weight: bold; font-size: 20px; display: none; margin: 0 auto 16px; max-width: 1400px; }
+    .ranges { display: flex; gap: 8px; margin-bottom: 16px; max-width: 1400px; margin: 0 auto 16px; }
+    .ranges button { background: #0f3460; color: #eee; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .ranges button.active { background: #00d4aa; color: #1a1a2e; font-weight: bold; }
+    button.ctrl { background: #00d4aa; color: #1a1a2e; border: none; padding: 10px; border-radius: 8px; font-size: 14px; cursor: pointer; width: 100%; margin: 4px 0; font-weight: bold; }
+    button.ctrl.red { background: #e74c3c; color: #fff; }
+    button.ctrl.amber { background: #f39c12; }
+    input[type=range] { width: 100%; accent-color: #00d4aa; margin: 6px 0; }
+    label { font-size: 13px; color: #aaa; display: block; margin-top: 8px; }
+    .badge { text-align: center; padding: 6px; border-radius: 6px; font-weight: bold; margin: 6px 0; }
+    .auto { background: #27ae60; }
+    .manual { background: #e67e22; }
+    .chart-wrap { position: relative; height: 220px; }
+    .ts { text-align: center; color: #666; font-size: 12px; margin-top: 8px; }
+    .span2 { grid-column: span 2; }
+    @media(max-width: 700px) { .span2 { grid-column: span 1; } .ranges button { padding: 6px 10px; font-size: 12px; } }
+  </style>
+</head>
+<body>
+
+<h1>🌿 Green Wall Dashboard</h1>
+<div class="alert" id="leakAlert">⚠️ LEAK DETECTED — SYSTEM SHUTDOWN</div>
+
+<div style="max-width:1400px;margin:0 auto">
+  <div class="ranges">
+    <button class="active" onclick="setRange('1h',this)">1 Hour</button>
+    <button onclick="setRange('24h',this)">24 Hours</button>
+    <button onclick="setRange('7d',this)">7 Days</button>
+    <button onclick="setRange('30d',this)">30 Days</button>
+  </div>
+</div>
+
+<div class="grid">
+
+  <div class="card">
+    <h2>Live Air Quality</h2>
+    <div class="row"><span>PM1.0</span><span class="val" id="pm1">--</span></div>
+    <div class="row"><span>PM2.5</span><span class="val" id="pm25">--</span></div>
+    <div class="row"><span>PM10</span><span class="val" id="pm10">--</span></div>
+    <div class="row"><span>VOC Index</span><span class="val" id="voc">--</span></div>
+    <div class="row"><span>NOx Index</span><span class="val" id="nox">--</span></div>
+    <div class="row"><span>AQ Status</span><span class="val" id="state">--</span></div>
+    <p class="ts" id="ts">--</p>
+  </div>
+
+  <div class="card">
+    <h2>Environment</h2>
+    <div class="row"><span>Temperature</span><span class="val" id="temp">--</span></div>
+    <div class="row"><span>Humidity</span><span class="val" id="hum">--</span></div>
+    <div class="row"><span>Flow Rate</span><span class="val" id="flow">--</span></div>
+    <div class="row"><span>Total Litres</span><span class="val" id="total">--</span></div>
+    <div class="row"><span>Water Level</span><span class="val" id="water">--</span></div>
+  </div>
+
+  <div class="card">
+    <h2>System Status</h2>
+    <div class="row"><span>Pump</span><span class="val" id="pump">--</span></div>
+    <div class="row"><span>Fan Speed</span><span class="val" id="fan">--</span></div>
+    <div class="row"><span>Lights</span><span class="val" id="lights">--</span></div>
+  </div>
+
+  <div class="card">
+    <h2>Controls</h2>
+    <div class="badge auto" id="modeBadge">AUTO MODE</div>
+    <button class="ctrl amber" onclick="setMode('auto')">SET AUTO</button>
+    <button class="ctrl" onclick="setMode('manual')">SET MANUAL</button>
+    <div id="manualControls" style="display:none;margin-top:10px">
+      <button class="ctrl" id="pumpBtn" onclick="togglePump()">PUMP OFF</button>
+      <label>Fan Speed: <span id="fanVal">0</span></label>
+      <input type="range" min="0" max="255" value="0" id="fanSlider"
+             oninput="document.getElementById('fanVal').innerText=this.value"
+             onchange="sendControl({fan:parseInt(this.value)})">
+      <label>Lights: <span id="lightVal">150</span></label>
+      <input type="range" min="0" max="255" value="150" id="lightSlider"
+             oninput="document.getElementById('lightVal').innerText=this.value"
+             onchange="sendControl({lights:parseInt(this.value)})">
+    </div>
+  </div>
+
+  <div class="card span2">
+    <h2>PM2.5 / PM1.0 / PM10 Over Time</h2>
+    <div class="chart-wrap"><canvas id="pm25Chart"></canvas></div>
+  </div>
+
+  <div class="card span2">
+    <h2>Temperature &amp; Humidity</h2>
+    <div class="chart-wrap"><canvas id="tempChart"></canvas></div>
+  </div>
+
+  <div class="card span2">
+    <h2>VOC &amp; NOx Index</h2>
+    <div class="chart-wrap"><canvas id="vocChart"></canvas></div>
+  </div>
+
+</div>
+
+<script>
+  let currentRange = '1h';
+  let pumpOn = false;
+  let isManual = false;
+
+  const gridOpts = (yLabel) => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#eee' } } },
+    scales: {
+      x: { ticks: { color: '#aaa', maxTicksLimit: 8 }, grid: { color: '#0f3460' } },
+      y: { ticks: { color: '#aaa' }, grid: { color: '#0f3460' },
+           title: { display: true, text: yLabel, color: '#aaa' } }
+    }
+  });
+
+  const pm25Chart = new Chart(document.getElementById('pm25Chart'), {
+    type: 'line',
+    data: { labels: [], datasets: [
+      { label: 'PM2.5', data: [], borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.1)', tension: 0.3, fill: true },
+      { label: 'PM1.0', data: [], borderColor: '#f39c12', backgroundColor: 'rgba(243,156,18,0.1)', tension: 0.3, fill: true },
+      { label: 'PM10',  data: [], borderColor: '#9b59b6', backgroundColor: 'rgba(155,89,182,0.1)', tension: 0.3, fill: true }
+    ]},
+    options: gridOpts('µg/m³')
+  });
+
+  const tempChart = new Chart(document.getElementById('tempChart'), {
+    type: 'line',
+    data: { labels: [], datasets: [
+      { label: 'Temperature °C', data: [], borderColor: '#e67e22', backgroundColor: 'rgba(230,126,34,0.1)', tension: 0.3, fill: true, yAxisID: 'y' },
+      { label: 'Humidity %',     data: [], borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.1)', tension: 0.3, fill: true, yAxisID: 'y1' }
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#eee' } } },
+      scales: {
+        x:  { ticks: { color: '#aaa', maxTicksLimit: 8 }, grid: { color: '#0f3460' } },
+        y:  { ticks: { color: '#e67e22' }, grid: { color: '#0f3460' }, title: { display: true, text: '°C', color: '#e67e22' } },
+        y1: { position: 'right', ticks: { color: '#3498db' }, grid: { drawOnChartArea: false }, title: { display: true, text: '%', color: '#3498db' } }
+      }
+    }
+  });
+
+  const vocChart = new Chart(document.getElementById('vocChart'), {
+    type: 'line',
+    data: { labels: [], datasets: [
+      { label: 'VOC Index', data: [], borderColor: '#00d4aa', backgroundColor: 'rgba(0,212,170,0.1)', tension: 0.3, fill: true },
+      { label: 'NOx Index', data: [], borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.1)', tension: 0.3, fill: true }
+    ]},
+    options: gridOpts('Index')
+  });
+
+  function updateCharts(data) {
+    if (!data.length) return;
+    const labels = data.map(r => r.time);
+
+    pm25Chart.data.labels = labels;
+    pm25Chart.data.datasets[0].data = data.map(r => parseFloat(r.pm25).toFixed(1));
+    pm25Chart.data.datasets[1].data = data.map(r => parseFloat(r.pm1).toFixed(1));
+    pm25Chart.data.datasets[2].data = data.map(r => parseFloat(r.pm10).toFixed(1));
+    pm25Chart.update();
+
+    tempChart.data.labels = labels;
+    tempChart.data.datasets[0].data = data.map(r => parseFloat(r.temperature).toFixed(1));
+    tempChart.data.datasets[1].data = data.map(r => parseFloat(r.humidity).toFixed(1));
+    tempChart.update();
+
+    vocChart.data.labels = labels;
+    vocChart.data.datasets[0].data = data.map(r => parseFloat(r.voc).toFixed(1));
+    vocChart.data.datasets[1].data = data.map(r => parseFloat(r.nox).toFixed(1));
+    vocChart.update();
+  }
+
+  function setRange(range, btn) {
+    currentRange = range;
+    document.querySelectorAll('.ranges button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadHistory();
+  }
+
+  function loadHistory() {
+    fetch('/api/history?range=' + currentRange)
+      .then(r => r.json())
+      .then(updateCharts)
+      .catch(e => console.log('History error:', e));
+  }
+
+  function refreshLive() {
+    fetch('/api/latest')
+      .then(r => r.json())
+      .then(d => {
+        if (!d || !d.pm25) return;
+        document.getElementById('pm1').innerText    = d.pm1    + ' µg/m³';
+        document.getElementById('pm25').innerText   = d.pm25   + ' µg/m³';
+        document.getElementById('pm10').innerText   = d.pm10   + ' µg/m³';
+        document.getElementById('voc').innerText    = d.voc;
+        document.getElementById('nox').innerText    = d.nox;
+        document.getElementById('temp').innerText   = d.temperature + ' °C';
+        document.getElementById('hum').innerText    = d.humidity    + ' %';
+        document.getElementById('flow').innerText   = d.flow        + ' L/min';
+        document.getElementById('total').innerText  = d.total_litres + ' L';
+        document.getElementById('water').innerText  = d.water;
+        document.getElementById('state').innerText  = d.state;
+        document.getElementById('pump').innerText   = d.pump   ? 'RUNNING' : 'OFF';
+        document.getElementById('fan').innerText    = d.fan    + ' / 255';
+        document.getElementById('lights').innerText = d.lights + ' / 255';
+        document.getElementById('ts').innerText     = 'Last update: ' + new Date(d.timestamp).toLocaleTimeString();
+        document.getElementById('leakAlert').style.display = d.leak ? 'block' : 'none';
+      })
+      .catch(e => console.log('Live error:', e));
+  }
+
+  function togglePump() {
+    pumpOn = !pumpOn;
+    sendControl({ pump: pumpOn });
+    const b = document.getElementById('pumpBtn');
+    b.innerText   = pumpOn ? 'PUMP ON' : 'PUMP OFF';
+    b.className   = 'ctrl' + (pumpOn ? '' : ' red');
+  }
+
+  function setMode(m) {
+    isManual = (m === 'manual');
+    sendControl({ mode: m });
+    document.getElementById('manualControls').style.display = isManual ? 'block' : 'none';
+    const b = document.getElementById('modeBadge');
+    b.innerText   = isManual ? 'MANUAL MODE' : 'AUTO MODE';
+    b.className   = 'badge ' + (isManual ? 'manual' : 'auto');
+  }
+
+  function sendControl(obj) {
+    fetch('/api/control', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(obj)
+    });
+  }
+
+  refreshLive();
+  loadHistory();
+  setInterval(refreshLive, 5000);
+  setInterval(loadHistory, 30000);
+</script>
+</body>
+</html>
