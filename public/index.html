@@ -16,7 +16,7 @@
     .row:last-child { border-bottom: none; }
     .val { color: #00d4aa; font-weight: bold; }
     .alert { background: #c0392b; border-radius: 8px; padding: 14px; text-align: center; font-weight: bold; font-size: 20px; display: none; margin: 0 auto 16px; max-width: 1400px; }
-    .ranges { display: flex; gap: 8px; margin-bottom: 16px; max-width: 1400px; margin: 0 auto 16px; }
+    .ranges { display: flex; flex-wrap: wrap; gap: 8px; max-width: 1400px; margin: 0 auto 16px; }
     .ranges button { background: #0f3460; color: #eee; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
     .ranges button.active { background: #00d4aa; color: #1a1a2e; font-weight: bold; }
     button.ctrl { background: #00d4aa; color: #1a1a2e; border: none; padding: 10px; border-radius: 8px; font-size: 14px; cursor: pointer; width: 100%; margin: 4px 0; font-weight: bold; }
@@ -38,20 +38,16 @@
 <h1>🌿 Green Wall Dashboard</h1>
 <div class="alert" id="leakAlert">⚠️ LEAK DETECTED — SYSTEM SHUTDOWN</div>
 
-<div style="max-width:1400px;margin:0 auto">
-  <div class="ranges">
+<div class="ranges">
+  <button class="active" onclick="setRange('1h',this)">1 Hour</button>
+  <button onclick="setRange('24h',this)">24 Hours</button>
+  <button onclick="setRange('7d',this)">7 Days</button>
+  <button onclick="setRange('30d',this)">30 Days</button>
+  <button onclick="setRange('3m',this)">3 Months</button>
+  <button onclick="setRange('6m',this)">6 Months</button>
+  <button onclick="setRange('1y',this)">1 Year</button>
 </div>
-<div style="max-width:1400px;margin:0 auto 16px">
-  <div class="ranges">
-    <button class="active" onclick="setRange('1h',this)">1 Hour</button>
-    <button onclick="setRange('24h',this)">24 Hours</button>
-    <button onclick="setRange('7d',this)">7 Days</button>
-    <button onclick="setRange('30d',this)">30 Days</button>
-    <button onclick="setRange('3m',this)">3 Months</button>
-    <button onclick="setRange('6m',this)">6 Months</button>
-    <button onclick="setRange('1y',this)">1 Year</button>
-  </div>
-</div>
+
 <div class="grid">
 
   <div class="card">
@@ -171,18 +167,15 @@
   function updateCharts(data) {
     if (!data.length) return;
     const labels = data.map(r => r.time);
-
     pm25Chart.data.labels = labels;
     pm25Chart.data.datasets[0].data = data.map(r => parseFloat(r.pm25).toFixed(1));
     pm25Chart.data.datasets[1].data = data.map(r => parseFloat(r.pm1).toFixed(1));
     pm25Chart.data.datasets[2].data = data.map(r => parseFloat(r.pm10).toFixed(1));
     pm25Chart.update();
-
     tempChart.data.labels = labels;
     tempChart.data.datasets[0].data = data.map(r => parseFloat(r.temperature).toFixed(1));
     tempChart.data.datasets[1].data = data.map(r => parseFloat(r.humidity).toFixed(1));
     tempChart.update();
-
     vocChart.data.labels = labels;
     vocChart.data.datasets[0].data = data.map(r => parseFloat(r.voc).toFixed(1));
     vocChart.data.datasets[1].data = data.map(r => parseFloat(r.nox).toFixed(1));
@@ -232,8 +225,8 @@
     pumpOn = !pumpOn;
     sendControl({ pump: pumpOn });
     const b = document.getElementById('pumpBtn');
-    b.innerText   = pumpOn ? 'PUMP ON' : 'PUMP OFF';
-    b.className   = 'ctrl' + (pumpOn ? '' : ' red');
+    b.innerText = pumpOn ? 'PUMP ON' : 'PUMP OFF';
+    b.className = 'ctrl' + (pumpOn ? '' : ' red');
   }
 
   function setMode(m) {
@@ -241,8 +234,8 @@
     sendControl({ mode: m });
     document.getElementById('manualControls').style.display = isManual ? 'block' : 'none';
     const b = document.getElementById('modeBadge');
-    b.innerText   = isManual ? 'MANUAL MODE' : 'AUTO MODE';
-    b.className   = 'badge ' + (isManual ? 'manual' : 'auto');
+    b.innerText = isManual ? 'MANUAL MODE' : 'AUTO MODE';
+    b.className = 'badge ' + (isManual ? 'manual' : 'auto');
   }
 
   function sendControl(obj) {
