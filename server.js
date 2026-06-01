@@ -32,7 +32,7 @@ db.exec(`
   AFTER INSERT ON readings
   BEGIN
     DELETE FROM readings 
-    WHERE timestamp < datetime('now', '-30 days');
+    WHERE timestamp < datetime('now', '-1 years');
   END
 `);
 
@@ -88,27 +88,39 @@ app.get('/api/history', (req, res) => {
   let interval;
   let groupBy;
   
-  switch(range) {
-    case '1h':
-      interval = "'-1 hours'";
-      groupBy  = "strftime('%Y-%m-%d %H:%M', timestamp)";
-      break;
-    case '24h':
-      interval = "'-24 hours'";
-      groupBy  = "strftime('%Y-%m-%d %H', timestamp)";
-      break;
-    case '7d':
-      interval = "'-7 days'";
-      groupBy  = "strftime('%Y-%m-%d %H', timestamp)";
-      break;
-    case '30d':
-      interval = "'-30 days'";
-      groupBy  = "strftime('%Y-%m-%d', timestamp)";
-      break;
-    default:
-      interval = "'-24 hours'";
-      groupBy  = "strftime('%Y-%m-%d %H', timestamp)";
-  }
+ switch(range) {
+  case '1h':
+    interval = "'-1 hours'";
+    groupBy  = "strftime('%H:%M', timestamp)";
+    break;
+  case '24h':
+    interval = "'-24 hours'";
+    groupBy  = "strftime('%d/%m %H:00', timestamp)";
+    break;
+  case '7d':
+    interval = "'-7 days'";
+    groupBy  = "strftime('%d/%m %H:00', timestamp)";
+    break;
+  case '30d':
+    interval = "'-30 days'";
+    groupBy  = "strftime('%d/%m', timestamp)";
+    break;
+  case '3m':
+    interval = "'-3 months'";
+    groupBy  = "strftime('%d/%m', timestamp)";
+    break;
+  case '6m':
+    interval = "'-6 months'";
+    groupBy  = "strftime('%W %Y', timestamp)";
+    break;
+  case '1y':
+    interval = "'-1 years'";
+    groupBy  = "strftime('%m/%Y', timestamp)";
+    break;
+  default:
+    interval = "'-24 hours'";
+    groupBy  = "strftime('%d/%m %H:00', timestamp)";
+}
 
   const rows = db.prepare(`
     SELECT 
