@@ -13,11 +13,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ===== Latest reading in memory =====
 let latest = {};
 let commands = { pump: false, fan: -1, lights: -1, mode: 'auto' };
 
-// ===== Helper =====
 const sbHeaders = {
   'apikey':        SUPABASE_KEY,
   'Authorization': 'Bearer ' + SUPABASE_KEY,
@@ -25,7 +23,6 @@ const sbHeaders = {
   'Prefer':        'return=minimal'
 };
 
-// ===== ESP32 posts data here =====
 app.post('/api/data', async (req, res) => {
   const d = req.body;
   latest = { ...d, timestamp: new Date().toISOString() };
@@ -42,6 +39,8 @@ app.post('/api/data', async (req, res) => {
         humidity:     d.humidity     || 0,
         voc:          d.voc          || 0,
         nox:          d.nox          || 0,
+        co2:          d.co2          || 0,
+        moisture:     d.moisture     || 0,
         flow:         d.flow         || 0,
         total_litres: d.total_litres || 0,
         pump:         d.pump         || false,
@@ -59,12 +58,10 @@ app.post('/api/data', async (req, res) => {
   }
 });
 
-// ===== Get latest reading =====
 app.get('/api/latest', (req, res) => {
   res.json(latest);
 });
 
-// ===== Get historical data =====
 app.get('/api/history', async (req, res) => {
   const range = req.query.range || '24h';
 
@@ -82,20 +79,19 @@ app.get('/api/history', async (req, res) => {
 
   try {
     const since = new Date(Date.now() - parseDuration(interval)).toISOString();
-    
+
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/readings?timestamp=gte.${since}&order=timestamp.asc&select=timestamp,pm1,pm25,pm10,temperature,humidity,voc,nox,fan`,
+      `${SUPABASE_URL}/rest/v1/readings?timestamp=gte.${since}&order=timestamp.asc&select=timestamp,pm1,pm25,pm10,temperature,humidity,voc,nox,co2,moisture,fan`,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } }
     );
-    
+
     const rows = await response.json();
 
-    // Group and average data
     const grouped = {};
     rows.forEach(r => {
       const key = getGroupKey(r.timestamp, range);
       if (!grouped[key]) {
-        grouped[key] = { time: key, pm1: [], pm25: [], pm10: [], temperature: [], humidity: [], voc: [], nox: [], fan: [] };
+        grouped[key] = { time: key, pm1: [], pm25: [], pm10: [], temperature: [], humidity: [], voc: [], nox: [], co2: [], moisture: [], fan: [] };
       }
       grouped[key].pm1.push(r.pm1);
       grouped[key].pm25.push(r.pm25);
@@ -104,6 +100,8 @@ app.get('/api/history', async (req, res) => {
       grouped[key].humidity.push(r.humidity);
       grouped[key].voc.push(r.voc);
       grouped[key].nox.push(r.nox);
+      grouped[key].co2.push(r.co2);
+      grouped[key].moisture.push(r.moisture);
       grouped[key].fan.push(r.fan);
     });
 
@@ -116,6 +114,8 @@ app.get('/api/history', async (req, res) => {
       humidity:    avg(g.humidity),
       voc:         avg(g.voc),
       nox:         avg(g.nox),
+      co2:         avg(g.co2),
+      moisture:    avg(g.moisture),
       fan:         avg(g.fan)
     }));
 
@@ -126,7 +126,6 @@ app.get('/api/history', async (req, res) => {
   }
 });
 
-// ===== Controls =====
 app.post('/api/control', (req, res) => {
   commands = { ...commands, ...req.body };
   res.json({ ok: true });
@@ -136,7 +135,6 @@ app.get('/api/control', (req, res) => {
   res.json(commands);
 });
 
-// ===== Helpers =====
 function avg(arr) {
   if (!arr.length) return 0;
   return arr.reduce((a, b) => a + b, 0) / arr.length;
