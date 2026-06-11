@@ -57,6 +57,7 @@
     <div class="row"><span>PM10</span><span class="val" id="pm10">--</span></div>
     <div class="row"><span>VOC Index</span><span class="val" id="voc">--</span></div>
     <div class="row"><span>NOx Index</span><span class="val" id="nox">--</span></div>
+    <div class="row"><span>CO2</span><span class="val" id="co2">--</span></div>
     <div class="row"><span>AQ Status</span><span class="val" id="state">--</span></div>
     <p class="ts" id="ts">--</p>
   </div>
@@ -65,6 +66,7 @@
     <h2>Environment</h2>
     <div class="row"><span>Temperature</span><span class="val" id="temp">--</span></div>
     <div class="row"><span>Humidity</span><span class="val" id="hum">--</span></div>
+    <div class="row"><span>Soil Moisture</span><span class="val" id="moist">--</span></div>
     <div class="row"><span>Flow Rate</span><span class="val" id="flow">--</span></div>
     <div class="row"><span>Total Litres</span><span class="val" id="total">--</span></div>
     <div class="row"><span>Water Level</span><span class="val" id="water">--</span></div>
@@ -108,6 +110,16 @@
   <div class="card span2">
     <h2>VOC &amp; NOx Index</h2>
     <div class="chart-wrap"><canvas id="vocChart"></canvas></div>
+  </div>
+
+  <div class="card span2">
+    <h2>CO2 Over Time</h2>
+    <div class="chart-wrap"><canvas id="co2Chart"></canvas></div>
+  </div>
+
+  <div class="card span2">
+    <h2>Soil Moisture Over Time</h2>
+    <div class="chart-wrap"><canvas id="moistChart"></canvas></div>
   </div>
 
 </div>
@@ -164,6 +176,22 @@
     options: gridOpts('Index')
   });
 
+  const co2Chart = new Chart(document.getElementById('co2Chart'), {
+    type: 'line',
+    data: { labels: [], datasets: [
+      { label: 'CO2 ppm', data: [], borderColor: '#2ecc71', backgroundColor: 'rgba(46,204,113,0.1)', tension: 0.3, fill: true }
+    ]},
+    options: gridOpts('ppm')
+  });
+
+  const moistChart = new Chart(document.getElementById('moistChart'), {
+    type: 'line',
+    data: { labels: [], datasets: [
+      { label: 'Soil Moisture %', data: [], borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.1)', tension: 0.3, fill: true }
+    ]},
+    options: gridOpts('%')
+  });
+
   function updateCharts(data) {
     if (!data.length) return;
     const labels = data.map(r => r.time);
@@ -180,6 +208,12 @@
     vocChart.data.datasets[0].data = data.map(r => parseFloat(r.voc).toFixed(1));
     vocChart.data.datasets[1].data = data.map(r => parseFloat(r.nox).toFixed(1));
     vocChart.update();
+    co2Chart.data.labels = labels;
+    co2Chart.data.datasets[0].data = data.map(r => r.co2 || 0);
+    co2Chart.update();
+    moistChart.data.labels = labels;
+    moistChart.data.datasets[0].data = data.map(r => r.moisture || 0);
+    moistChart.update();
   }
 
   function setRange(range, btn) {
@@ -206,8 +240,10 @@
         document.getElementById('pm10').innerText   = d.pm10   + ' µg/m³';
         document.getElementById('voc').innerText    = d.voc;
         document.getElementById('nox').innerText    = d.nox;
+        document.getElementById('co2').innerText    = d.co2    + ' ppm';
         document.getElementById('temp').innerText   = d.temperature + ' °C';
         document.getElementById('hum').innerText    = d.humidity    + ' %';
+        document.getElementById('moist').innerText  = d.moisture    + ' %';
         document.getElementById('flow').innerText   = d.flow        + ' L/min';
         document.getElementById('total').innerText  = d.total_litres + ' L';
         document.getElementById('water').innerText  = d.water;
